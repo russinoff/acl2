@@ -5,6 +5,7 @@
 (local (in-theory (acl2::enable-arith5)))
 
 (local (include-book "basic"))
+(local (include-book "bits"))
 (include-book "definitions")
 (include-book "projects/quadratic-reciprocity/euclid" :dir :system)
 
@@ -379,6 +380,45 @@
   :cases ((equal (abs (* x y)) (* (abs x) (abs y))))
   :hints (("subgoal 2" :in-theory(enable abs))))
 
+(acl2::with-arith5-nonlinear-help
+ (defruled expe-fl
+   (implies (and (real/rationalp x)
+                 (>= x 1)
+                 (radixp b))
+            (equal (expe (fl x) b)
+                   (expe x b)))
+   :enable (fl expe-lower-bound expe-upper-bound)
+   :use ((:instance expe>= (n 0))
+         (:instance expe-unique (x (fl x)) (n (expe x b))))))
+
+(defruled digitn-expe
+  (implies (and (not (zp x))
+                (radixp b))
+           (>= (digitn x (expe x b) b) 1))
+  :rule-classes :linear
+  :enable (dvecp expe-lower-bound)
+  :use (expe-upper-bound
+        (:instance dvecp-digitn-1 (n (expe x b)))))
+
+(defruled digitn>expe
+  (implies (and (natp x)
+                (natp n)
+                (>= n (1+ (expe x b)))
+                (radixp b))
+           (equal (digitn x n b) 0))
+  :enable (dvecp-expe)
+  :use (:instance dvecp-monotone (n (1+ (expe x b))) (m n)))
+
+(defruled digits>expe
+  (implies (and (natp x)
+                (integerp m)
+                (integerp n)
+                (>= m (1+ (expe x b)))
+                (radixp b))
+           (equal (digits x n m b) 0))
+  :enable (dvecp-digits-0 dvecp-expe)
+  :use (:instance dvecp-monotone (n (1+ (expe x b)))))
+
 (defruled compare-abs-em
   (implies (and (real/rationalp x)
                 (real/rationalp y)
@@ -650,6 +690,33 @@
 			(* (sig x) (sig y))
 		      (* 1/2 (sig x) (sig y)))))
   :enable sigm-prod)
+
+(defruled expo-fl
+  (implies (and (rationalp x)
+                (>= x 1))
+           (equal (expo (fl x))
+                  (expo x)))
+  :enable expe-fl)
+
+(defruled bitn-expo
+  (implies (not (zp x))
+           (equal (bitn x (expo x)) 1))
+  :enable (digitn-expe bitn-as-digitn))
+
+(defruled bitn>expo
+  (implies (and (natp x)
+                (natp n)
+                (>= n (1+ (expo x))))
+           (equal (bitn x n) 0))
+  :enable bitn-as-digitn)
+
+(defruled bits>expo
+  (implies (and (natp x)
+                (integerp m)
+                (integerp n)
+                (>= m (1+ (expo x))))
+           (equal (bits x n m) 0))
+  :enable bits-as-digits)
 
 ;;;**********************************************************************
 ;;;                 Integer Significand with its corresponding Exponent
@@ -1356,7 +1423,8 @@
                     (radixp b))
                (equal (integerp (* x (expt b (+ -1 (- k)))))
                       (= (digitn x k b) 0)))
-      :enable (digitn digits)))
+      :enable (digitn digits)
+      :disable digits-n-n-rewrite))
   :enable (digitn digits)
   :use ((:instance exact-digits-1 (k k))
         (:instance exact-digits-1 (k (1+ k))))
@@ -2034,7 +2102,7 @@ y < 2^p, and hence x and y are p-exact.
 		  (exactp x (- n k)))
 	     (iff (exactp x (1- (- n k)))
 		  (= (bitn x k) 0)))
-  :enable (bitn bits digitn digits)
+  :enable (bitn-as-digitn)
   :use (:instance exact-digit-k+1 (b 2))
   :rule-classes ())
 
@@ -2194,4 +2262,3 @@ y < 2^p, and hence x and y are p-exact.
                  (exactp x n))
             (equal (expo (fp- x n)) (expo x)))
   :use (:instance expe-fpr- (p n) (b 2)))
-
