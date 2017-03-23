@@ -212,6 +212,29 @@
 		    (if (< (* (sig x) (sig y)) 2)
 			(* (sig x) (sig y))
 		      (* 1/2 (sig x) (sig y))))))
+
+(defthmd expo-fl
+  (implies (and (rationalp x)
+                (>= x 1))
+           (equal (expo (fl x))
+                  (expo x))))
+
+(defthmd bitn-expo
+  (implies (not (zp x))
+           (equal (bitn x (expo x)) 1)))
+
+(defthmd bitn>expo
+  (implies (and (natp x)
+                (natp n)
+                (>= n (1+ (expo x))))
+           (equal (bitn x n) 0)))
+
+(defthmd bits>expo
+  (implies (and (natp x)
+                (integerp m)
+                (integerp n)
+                (>= m (1+ (expo x))))
+           (equal (bits x n m) 0)))
 )
 
 ;;;**********************************************************************

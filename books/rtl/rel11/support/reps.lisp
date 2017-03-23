@@ -799,10 +799,6 @@
                (infp x f)
                (nanp x f)
                (unsupp x f)))
-  :prep-lemmas (
-    (defrule bvecp-0
-      (bvecp 0 n)
-      :enable bvecp))
   :enable (encodingp zerp denormp pseudop normp infp nanp unsupp
            sigw sigf)
   :cases ((bvecp (expf x f) (expw f)))

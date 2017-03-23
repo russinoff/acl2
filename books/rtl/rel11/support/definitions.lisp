@@ -21,10 +21,10 @@
 (defnd radixp (b)
   (and (integerp b) (>= b 2)))
 
-(defrule radixp-forward
+(defrule radixp-compound-recognizer
   (implies (radixp b)
            (and (integerp b) (>= b 2)))
-  :rule-classes :forward-chaining)
+  :rule-classes :compound-recognizer)
 
 (defmacro digitp (x b)
   `(and (natp ,x) (< ,x ,b)))
@@ -43,8 +43,6 @@
 ;; From bits.lisp:
 
 (defnd dvecp (x k b)
-;  (declare (xargs :guard (and (natp k)
-;                              (radixp b))))
   (and (natp x)
        (natp k)
        (radixp b)

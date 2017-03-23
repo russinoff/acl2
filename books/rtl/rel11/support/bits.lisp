@@ -107,6 +107,9 @@
 		(< x (expt 2 k))))
   :rule-classes :forward-chaining)
 
+(defrule bvecp-0
+  (bvecp 0 k))
+
 ; (defun nats (n) ... )
 
 (defrule bvecp-member
@@ -725,12 +728,11 @@
 ; (defund bits-exec (x i j) ...
 ; (defund bits (x i j) ...
 
-(local
- (defrule bits-as-digits
+(defrule bits-as-digits
   (equal
    (bits x i j)
    (digits x i j 2))
-  :enable (bits digits)))
+  :enable (bits digits))
 
 (defrule bits-bvecp
     (implies (and (<= (+ 1 i (- j)) k)
@@ -1266,9 +1268,7 @@
 ; (defun sumdigits (x n b) ... )
 
 (defruled sumdigits-digits
-  (implies (and (integerp x)
-                (posp n)
-                (radixp b))
+  (implies (radixp b)
            (equal (sumdigits x n b)
                   (digits x (1- n) 0 b)))
   :prep-lemmas (
@@ -1276,6 +1276,13 @@
       (equal (digitn x 0 b) (digits x 0 0 b))
       :enable digitn)
     (defrule lemma2
+      (implies (and (zp n)
+                    (radixp b))
+               (equal (digits x (1- n) 0 b) 0))
+      :use (:instance digits-default
+             (i (1- n))
+             (j 0)))
+    (defrule lemma3
       (implies
         (and (> (+ -1 n) 0) (integerp n) (radixp b))
         (equal
@@ -1288,10 +1295,7 @@
   :induct (sumdigits x n b))
 
 (defruled sumdigits-thm
-  (implies (and (dvecp x n b)
-                (natp n)
-                (> n 0)
-                (radixp b))
+  (implies (dvecp x n b)
            (equal (sumdigits x n b)
                   x))
   :enable sumdigits-digits)
@@ -1301,8 +1305,7 @@
 (defrule digitp-of-all-digits-p
   (implies (and (all-digits-p list n b)
                 (< k n)
-                (natp k)
-                (natp n))
+                (natp k))
            (digitp (nth k list) b))
   :use (:instance nth-all-digits-p
          (k n)
@@ -1453,6 +1456,7 @@
            (equal (digitn (expt b n) n b)
                   1))
   :enable digitn-def)
+
 (defruled digitn-expt-0
   (implies (and (not (equal i n))
                 (case-split (integerp i))
@@ -1507,11 +1511,11 @@
 ; (defund bitn-exec (x n) ... )
 ; (defund bitn (x n) ... )
 
-(local
- (defrule bitn-as-digitn
-   (equal (bitn x n)
-          (digitn x n 2))
-   :enable (bitn digitn)))
+
+(defrule bitn-as-digitn
+  (equal (bitn x n)
+         (digitn x n 2))
+  :enable (bitn digitn))
 
 (defrule bits-n-n-rewrite
   (equal (bits x n n)
@@ -1798,17 +1802,6 @@
 
 ; (defund radix-cat (b x m y n) ... )
 
-(local
- (defruled radix-cat-aux
-   (implies (and (natp m)
-                 (natp n)
-                 (dvecp x m b)
-                 (dvecp y n b)
-                 (radixp b))
-            (equal (radix-cat b x m y n)
-                   (+ (* x (expt b n)) y)))
-   :enable radix-cat))
-
 ; (defn formal-+ (x y) ... )
 
 ; (defun cat-size (x) ... )
@@ -1848,6 +1841,86 @@
       (i (1- n))
       (j 0))))))
 
+(defruled radix-cat-2
+  (implies (and (dvecp x1 a1 b)
+                (dvecp x0 a0 b))
+           (equal (cat-r b x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt b a0)))))
+  :enable radix-cat)
+
+(defruled radix-cat-3
+  (implies (and (dvecp x2 a2 b)
+                (dvecp x1 a1 b)
+                (dvecp x0 a0 b))
+           (equal (cat-r b x2 a2 x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt b a0))
+                     (* x2 (expt b (+ a0 a1))))))
+  :use (radix-cat-2
+        (:instance radix-cat-2
+          (x1 x2)
+          (a1 a2)
+          (x0 (cat-r b x1 a1 x0 a0))
+          (a0 (+ a0 a1)))))
+
+(defruled radix-cat-4
+  (implies (and (dvecp x3 a3 b)
+                (dvecp x2 a2 b)
+                (dvecp x1 a1 b)
+                (dvecp x0 a0 b))
+           (equal (cat-r b x3 a3 x2 a2 x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt b a0))
+                     (* x2 (expt b (+ a0 a1)))
+                     (* x3 (expt b (+ a0 a1 a2))))))
+  :use (radix-cat-3
+        (:instance radix-cat-2
+         (x1 x3)
+         (a1 a3)
+         (x0 (cat-r b x2 a2 x1 a1 x0 a0))
+         (a0 (+ a0 a1 a2)))))
+
+(defruled radix-cat-5
+  (implies (and (dvecp x4 a4 b)
+                (dvecp x3 a3 b)
+                (dvecp x2 a2 b)
+                (dvecp x1 a1 b)
+                (dvecp x0 a0 b))
+           (equal (cat-r b x4 a4 x3 a3 x2 a2 x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt b a0))
+                     (* x2 (expt b (+ a0 a1)))
+                     (* x3 (expt b (+ a0 a1 a2)))
+                     (* x4 (expt b (+ a0 a1 a2 a3))))))
+  :use (radix-cat-4
+        (:instance radix-cat-2
+         (x1 x4)
+         (a1 a4)
+         (x0 (cat-r b x3 a3 x2 a2 x1 a1 x0 a0))
+         (a0 (+ a0 a1 a2 a3)))))
+
+(defruled radix-cat-6
+  (implies (and (dvecp x5 a5 b)
+                (dvecp x4 a4 b)
+                (dvecp x3 a3 b)
+                (dvecp x2 a2 b)
+                (dvecp x1 a1 b)
+                (dvecp x0 a0 b))
+           (equal (cat-r b x5 a5 x4 a4 x3 a3 x2 a2 x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt b a0))
+                     (* x2 (expt b (+ a0 a1)))
+                     (* x3 (expt b (+ a0 a1 a2)))
+                     (* x4 (expt b (+ a0 a1 a2 a3)))
+                     (* x5 (expt b (+ a0 a1 a2 a3 a4))))))
+  :use (radix-cat-5
+        (:instance radix-cat-2
+         (x1 x5)
+         (a1 a5)
+         (x0 (cat-r b x4 a4 x3 a3 x2 a2 x1 a1 x0 a0))
+         (a0 (+ a0 a1 a2 a3 a4)))))
+
 (defrule cat-r-with-n-0
   (implies (radixp b)
            (equal (radix-cat b x m y 0)
@@ -1881,6 +1954,24 @@
                   (cat-r b x m y n)))
   :enable radix-cat)
 
+(defrule cat-r-digits-3
+  (implies (and (integerp i)
+                (integerp m)
+                (>= i (1- m))
+                (radixp b))
+           (equal (cat-r b (digits x i 0 b) m y n)
+                  (cat-r b x m y n)))
+  :enable radix-cat)
+
+(defrule cat-r-digits-4
+  (implies (and (integerp i)
+                (integerp n)
+                (>= i (1- n))
+                (radixp b))
+           (equal (cat-r b x m (digits y i 0 b) n)
+                  (cat-r b x m y n)))
+  :enable radix-cat)
+
 (defrule cat-r-associative
   (implies (and (case-split (<= (+ m n) p))
                 (case-split (<= 0 m))
@@ -1908,7 +1999,7 @@
                      (cat-r b x m (cat-r b y n z q) (+ n q))))
      :cases ((not (dvecp (cat-r b x m y n) p b))
              (not (dvecp (cat-r b y n z q) (+ n q) b)))
-     :hints (("subgoal 3" :in-theory (enable radix-cat-aux)))
+     :hints (("subgoal 3" :in-theory (enable radix-cat-2)))
      :rule-classes ()))
   :enable (cat-r-digits-1 cat-r-digits-2)
   :use ((:instance lemma
@@ -1933,7 +2024,7 @@
            (equal (equal k (cat-r b x m y n))
                   (and (equal y (digits k (1- n) 0 b))
                        (equal x (digits k (+ -1 m n) n b)))))
-  :enable radix-cat-aux
+  :enable radix-cat-2
   :cases ((equal k (cat-r b x m y n)))
    :hints (
     ("subgoal 2"
@@ -1988,7 +2079,7 @@
                 (radixp b))
            (equal (cat-r b (digits x i j b) m (digits x k l b) n)
                   (digits x i l b)))
-  :enable radix-cat-aux
+  :enable radix-cat-2
   :use (:instance digits-plus-digits
          (n i)
          (m l)
@@ -2194,6 +2285,86 @@
   :cases ((and (natp m) (natp n)))
   :hints (("subgoal 2" :in-theory (enable radix-cat))))
 
+(defruled binary-cat-2
+  (implies (and (bvecp x1 a1)
+                (bvecp x0 a0)
+                (natp a1)
+                (natp a0))
+           (equal (cat x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt 2 a0)))))
+  :use (:instance radix-cat-2 (b 2)))
+
+(defruled binary-cat-3
+  (implies (and (bvecp x2 a2)
+                (bvecp x1 a1)
+                (bvecp x0 a0)
+                (natp a2)
+                (natp a1)
+                (natp a0))
+           (equal (cat x2 a2 x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt 2 a0))
+                     (* x2 (expt 2 (+ a0 a1))))))
+  :use (:instance radix-cat-3 (b 2)))
+
+(defruled binary-cat-4
+  (implies (and (bvecp x3 a3)
+                (bvecp x2 a2)
+                (bvecp x1 a1)
+                (bvecp x0 a0)
+                (natp a3)
+                (natp a2)
+                (natp a1)
+                (natp a0))
+           (equal (cat x3 a3 x2 a2 x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt 2 a0))
+                     (* x2 (expt 2 (+ a0 a1)))
+                     (* x3 (expt 2 (+ a0 a1 a2))))))
+  :use (:instance radix-cat-4 (b 2)))
+
+(defruled binary-cat-5
+  (implies (and (bvecp x4 a4)
+                (bvecp x3 a3)
+                (bvecp x2 a2)
+                (bvecp x1 a1)
+                (bvecp x0 a0)
+                (natp a4)
+                (natp a3)
+                (natp a2)
+                (natp a1)
+                (natp a0))
+           (equal (cat x4 a4 x3 a3 x2 a2 x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt 2 a0))
+                     (* x2 (expt 2 (+ a0 a1)))
+                     (* x3 (expt 2 (+ a0 a1 a2)))
+                     (* x4 (expt 2 (+ a0 a1 a2 a3))))))
+  :use (:instance radix-cat-5 (b 2)))
+
+(defruled binary-cat-6
+  (implies (and (bvecp x5 a5)
+                (bvecp x4 a4)
+                (bvecp x3 a3)
+                (bvecp x2 a2)
+                (bvecp x1 a1)
+                (bvecp x0 a0)
+                (natp a5)
+                (natp a4)
+                (natp a3)
+                (natp a2)
+                (natp a1)
+                (natp a0))
+           (equal (cat x5 a5 x4 a4 x3 a3 x2 a2 x1 a1 x0 a0)
+                  (+ x0
+                     (* x1 (expt 2 a0))
+                     (* x2 (expt 2 (+ a0 a1)))
+                     (* x3 (expt 2 (+ a0 a1 a2)))
+                     (* x4 (expt 2 (+ a0 a1 a2 a3)))
+                     (* x5 (expt 2 (+ a0 a1 a2 a3 a4))))))
+  :use (:instance radix-cat-6 (b 2)))
+
 (defrule cat-with-n-0
   (equal (binary-cat x m y 0)
 	 (bits x (1- m) 0)))
@@ -2221,6 +2392,21 @@
     (equal (cat x m (bits y (1- n) 0) n)
 	   (cat x m y n))
     :use (:instance cat-r-digits-2 (b 2)))
+
+(defrule cat-bits-3
+  (implies (and (integerp i)
+                (integerp m)
+                (>= i (1- m)))
+           (equal (cat (bits x i 0) m y n)
+                  (cat x m y n)))
+  :use (:instance cat-r-digits-3 (b 2)))
+
+(defrule cat-bits-4
+  (implies (and (integerp i)
+                (integerp n)
+                (>= i (1- n)))
+           (equal (cat x m (bits y i 0) n)
+                  (cat x m y n))))
 
 (defrule cat-associative
   (implies (and (case-split (<= (+ m n) p))
@@ -2580,3 +2766,4 @@
   :cases ((bvecp (sextend m n r) m))
   :hints (("subgoal 2" :in-theory (enable bvecp-as-dvecp sextend-r))))
 
+(in-theory (disable bits-as-digits bitn-as-digitn))
